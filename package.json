@@ -1,0 +1,25 @@
+{
+  "name": "oblig3-mmi-aimtest",
+  "version": "1.0.0",
+  "description": "",
+  "main": "index.js",
+  "scripts": {
+    "test": "node tests/e2e.mjs",
+    "start": "node server.mjs"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/Mesteraldo/oblig3-MMI-aimTest.git"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "type": "module",
+  "bugs": {
+    "url": "https://github.com/Mesteraldo/oblig3-MMI-aimTest/issues"
+  },
+  "homepage": "https://github.com/Mesteraldo/oblig3-MMI-aimTest#readme",
+  "devDependencies": {
+    "playwright": "^1.64.1"
+  }
+}

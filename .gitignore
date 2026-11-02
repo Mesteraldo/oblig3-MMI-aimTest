@@ -1,0 +1,7 @@
+node_modules/
+tests/output/
+# Resultatfiler inneholder deltakerdata – ikke commit dem
+resultater/*.json
+
+# Genereres på nytt ved hver testkjøring
+tests/screenshots/

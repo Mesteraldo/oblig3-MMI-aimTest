@@ -1,0 +1,1283 @@
+<!doctype html>
+<html lang="nb">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Mus vs. Trackpad – hastighet og presisjon</title>
+<style>
+  :root {
+    --bg: #0c0f16;
+    --surface: #151a24;
+    --surface-2: #1c2230;
+    --border: #2a3245;
+    --text: #eef1f7;
+    --muted: #a6afc2;
+    --accent: #5eead4;
+    --accent-ink: #062b26;
+    --accent-2: #a78bfa;
+    --danger: #f87171;
+    --target: #fbbf24;
+    --target-ring: #fde68a;
+    --header-h: 64px;
+    --radius: 14px;
+  }
+  * { box-sizing: border-box; }
+  html, body {
+    margin: 0;
+    min-height: 100%;
+    background: var(--bg);
+    color: var(--text);
+    font-family: system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+    line-height: 1.5;
+    -webkit-font-smoothing: antialiased;
+  }
+  [hidden] { display: none !important; }
+
+  /* ---------- Generelle skjermer ---------- */
+  .screen {
+    min-height: 100vh;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    padding: 40px 32px;
+    background:
+      radial-gradient(1200px 600px at 15% -10%, rgba(94, 234, 212, 0.08), transparent 60%),
+      radial-gradient(900px 500px at 110% 110%, rgba(167, 139, 250, 0.10), transparent 60%),
+      var(--bg);
+  }
+  .panel {
+    width: 100%;
+    max-width: 760px;
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 20px;
+    padding: 36px 44px;
+    box-shadow: 0 24px 60px rgba(0, 0, 0, 0.35);
+  }
+  .step {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    font-size: 13px;
+    font-weight: 600;
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+    color: var(--accent);
+    background: rgba(94, 234, 212, 0.10);
+    border: 1px solid rgba(94, 234, 212, 0.25);
+    padding: 4px 12px;
+    border-radius: 999px;
+  }
+  .step-dots { display: inline-flex; gap: 4px; }
+  .step-dots i { width: 8px; height: 8px; border-radius: 50%; background: var(--border); display: block; }
+  .step-dots i.done-trackpad { background: var(--accent); }
+  .step-dots i.done-external_mouse { background: var(--accent-2); }
+  .step-dots i.now { background: var(--text); box-shadow: 0 0 0 2px rgba(255, 255, 255, 0.25); }
+  h1 { font-size: 40px; line-height: 1.15; margin: 16px 0 10px; letter-spacing: -0.02em; }
+  h1 .vs { color: var(--muted); font-weight: 500; }
+  h2 { font-size: 28px; margin: 0; letter-spacing: -0.01em; }
+  p.lead { font-size: 17px; color: var(--muted); margin: 0 0 6px; }
+
+  .btn {
+    font: inherit;
+    font-size: 17px;
+    font-weight: 650;
+    border: 1px solid transparent;
+    border-radius: 12px;
+    padding: 13px 26px;
+    cursor: pointer;
+    transition: transform 0.08s ease, background 0.15s ease;
+  }
+  .btn:active:not(:disabled) { transform: translateY(1px); }
+  .btn:focus-visible { outline: 3px solid var(--accent-2); outline-offset: 2px; }
+  .btn-primary { background: var(--accent); color: var(--accent-ink); }
+  .btn-primary:hover:not(:disabled) { background: #8af3e2; }
+  .btn-secondary { background: transparent; color: var(--text); border-color: var(--border); }
+  .btn-secondary:hover:not(:disabled) { background: var(--surface-2); }
+  .btn-danger { background: rgba(248, 113, 113, 0.15); color: #fecaca; border-color: rgba(248, 113, 113, 0.5); }
+  .btn:disabled { background: var(--surface-2); color: #7d869a; border-color: var(--border); cursor: not-allowed; }
+  .btn-small { font-size: 15px; padding: 10px 18px; }
+
+  .notice {
+    margin: 0 0 20px;
+    padding: 12px 16px;
+    border-radius: 10px;
+    background: rgba(248, 113, 113, 0.12);
+    border: 1px solid rgba(248, 113, 113, 0.4);
+    color: #fecaca;
+    font-weight: 500;
+  }
+  .kbd {
+    display: inline-block;
+    font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+    font-size: 0.85em;
+    padding: 1px 7px;
+    border: 1px solid var(--border);
+    border-bottom-width: 2px;
+    border-radius: 6px;
+    background: var(--surface-2);
+    color: var(--text);
+  }
+
+  /* ---------- Startskjema ---------- */
+  .plan { display: flex; gap: 6px; margin: 18px 0 22px; flex-wrap: wrap; }
+  .plan span {
+    font-size: 13px; font-weight: 600;
+    padding: 5px 11px; border-radius: 8px;
+    border: 1px solid var(--border); background: var(--surface-2);
+  }
+  .plan .tp { color: var(--accent); }
+  .plan .em { color: var(--accent-2); }
+  .form { display: grid; grid-template-columns: 130px 1fr; gap: 16px 20px; align-items: start; margin-bottom: 18px; }
+  .field { display: flex; flex-direction: column; gap: 6px; min-width: 0; }
+  .field.full { grid-column: 1 / -1; }
+  .field > label, .field > .legend { font-size: 14px; font-weight: 600; color: var(--muted); }
+  .input, .select {
+    font: inherit;
+    font-size: 16px;
+    color: var(--text);
+    background: var(--surface-2);
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    height: 44px;
+    padding: 0 12px;
+    width: 100%;
+  }
+  .input:focus, .select:focus { outline: 2px solid var(--accent); outline-offset: 1px; border-color: transparent; }
+  .seg { display: flex; gap: 8px; flex-wrap: wrap; }
+  .seg label { position: relative; flex: 1; min-width: 120px; cursor: pointer; }
+  .seg input { position: absolute; opacity: 0; inset: 0; margin: 0; cursor: pointer; }
+  .seg span {
+    display: block; text-align: center;
+    padding: 10px 12px;
+    border-radius: 10px;
+    border: 1px solid var(--border);
+    background: var(--surface-2);
+    font-weight: 600;
+  }
+  .seg input:checked + span { background: rgba(94, 234, 212, 0.14); border-color: var(--accent); color: var(--accent); }
+  .seg input:focus-visible + span { outline: 3px solid var(--accent-2); outline-offset: 2px; }
+  .form-error { color: #fca5a5; font-weight: 550; margin: 0 0 14px; }
+  .start-row { display: flex; align-items: center; gap: 16px; flex-wrap: wrap; }
+  .start-row .hint { color: var(--muted); font-size: 14px; }
+
+  /* ---------- Instruksjonsskjerm ---------- */
+  .panel.instruction { text-align: center; max-width: 880px; }
+  .instruction .big-title {
+    font-size: clamp(44px, 6vw, 80px);
+    font-weight: 800;
+    line-height: 1.1;
+    letter-spacing: 0.01em;
+    margin: 20px 0 10px;
+    background: linear-gradient(90deg, var(--accent), var(--accent-2));
+    -webkit-background-clip: text;
+    background-clip: text;
+    color: transparent;
+  }
+  .attempt {
+    display: inline-block;
+    font-size: 18px;
+    font-weight: 700;
+    padding: 6px 16px;
+    border-radius: 999px;
+    border: 1px solid var(--border);
+    background: var(--surface-2);
+    margin-bottom: 14px;
+    font-variant-numeric: tabular-nums;
+  }
+  .instruction .device { font-size: 26px; font-weight: 650; margin: 0 0 8px; }
+  .instruction .hint { color: var(--muted); font-size: 16px; margin: 0 auto 28px; max-width: 540px; }
+  .instruction .notice { text-align: left; max-width: 540px; margin: 0 auto 20px; }
+  .instruction .row { display: flex; justify-content: center; align-items: center; gap: 12px; flex-wrap: wrap; }
+
+  /* ---------- Test ---------- */
+  #screen-test { position: fixed; inset: 0; background: var(--bg); }
+  .test-header {
+    position: absolute;
+    top: 0; left: 0; right: 0;
+    height: var(--header-h);
+    display: grid;
+    grid-template-columns: 1fr auto 1fr;
+    align-items: center;
+    gap: 16px;
+    padding: 0 24px;
+    background: var(--surface);
+    border-bottom: 1px solid var(--border);
+    z-index: 2;
+  }
+  .test-header .left { display: flex; align-items: baseline; gap: 10px; min-width: 0; white-space: nowrap; }
+  .test-header .title { font-size: 20px; font-weight: 700; }
+  .test-header .attempt-small { color: var(--muted); font-size: 15px; font-variant-numeric: tabular-nums; }
+  .test-header .progress {
+    font-size: 18px;
+    font-weight: 650;
+    font-variant-numeric: tabular-nums;
+    background: var(--surface-2);
+    border: 1px solid var(--border);
+    padding: 6px 14px;
+    border-radius: 10px;
+  }
+  .test-header .right { display: flex; justify-content: flex-end; align-items: center; gap: 18px; color: var(--muted); font-size: 15px; white-space: nowrap; }
+  .test-header .misses { font-variant-numeric: tabular-nums; color: var(--text); }
+  .test-header .misses.bump { color: var(--danger); }
+
+  .arena {
+    position: absolute;
+    top: var(--header-h); left: 0; right: 0; bottom: 0;
+    overflow: hidden;
+    user-select: none;
+    -webkit-user-select: none;
+    cursor: crosshair;
+    background-image: radial-gradient(rgba(255, 255, 255, 0.045) 1px, transparent 1px);
+    background-size: 28px 28px;
+  }
+  .arena.miss-flash { animation: missFlash 0.28s ease-out; }
+  @keyframes missFlash {
+    from { box-shadow: inset 0 0 0 4px var(--danger), inset 0 0 120px rgba(248, 113, 113, 0.25); }
+    to   { box-shadow: inset 0 0 0 0 transparent, inset 0 0 0 transparent; }
+  }
+  .miss-dot {
+    position: absolute;
+    width: 26px; height: 26px;
+    margin: -13px 0 0 -13px;
+    border-radius: 50%;
+    border: 3px solid var(--danger);
+    pointer-events: none;
+    animation: missDot 0.45s ease-out forwards;
+  }
+  @keyframes missDot {
+    from { transform: scale(0.4); opacity: 1; }
+    to   { transform: scale(1.6); opacity: 0; }
+  }
+  .target {
+    position: absolute;
+    width: 64px; height: 64px;
+    border-radius: 50%;
+    background: radial-gradient(circle at 50% 50%, #fff7d6 0 7px, var(--target) 8px 100%);
+    box-shadow: 0 0 0 3px var(--target-ring) inset, 0 0 24px rgba(251, 191, 36, 0.45);
+    cursor: pointer;
+  }
+  .countdown {
+    position: absolute;
+    inset: 0;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    pointer-events: none;
+  }
+  .countdown .num {
+    font-size: 160px;
+    font-weight: 800;
+    line-height: 1;
+    color: var(--accent);
+    font-variant-numeric: tabular-nums;
+    animation: pop 0.9s ease-out;
+  }
+  .countdown .sub { color: var(--muted); font-size: 18px; margin-top: 12px; }
+  @keyframes pop {
+    0% { transform: scale(1.3); opacity: 0.4; }
+    25% { transform: scale(1); opacity: 1; }
+    100% { transform: scale(0.92); opacity: 0.85; }
+  }
+
+  /* ---------- Resultat per test ---------- */
+  #screen-result, #screen-final { justify-content: flex-start; padding-top: 32px; padding-bottom: 32px; }
+  .result-wrap { width: 100%; max-width: 1120px; }
+  .result-head { margin-bottom: 20px; }
+  .quip { color: var(--muted); margin: 4px 0 0; font-size: 16px; }
+  .result-grid { display: grid; grid-template-columns: minmax(0, 1.25fr) minmax(0, 1fr); gap: 20px; align-items: start; }
+  .cards { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; }
+  .card {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    padding: 16px 18px;
+    min-width: 0;
+  }
+  .card .label { font-size: 13px; font-weight: 600; text-transform: uppercase; letter-spacing: 0.06em; color: var(--muted); }
+  .card .value { font-size: 30px; font-weight: 750; font-variant-numeric: tabular-nums; margin-top: 4px; line-height: 1.2; white-space: nowrap; }
+  .card .sub { font-size: 15px; color: var(--muted); margin-top: 2px; font-variant-numeric: tabular-nums; }
+  .card.accent .value { color: var(--accent); }
+  .card.wide { grid-column: 1 / -1; display: flex; align-items: baseline; justify-content: space-between; gap: 12px; }
+  .card.wide .value { margin-top: 0; }
+
+  /* Kompakt tabell: 20 rader brettet i to kolonner (1–10 | 11–20), ingen rulling. */
+  .table-card { padding: 0 0 8px; overflow: hidden; }
+  .table-card > .label { padding: 14px 18px 10px; display: block; }
+  table.targets { display: block; width: 100%; font-variant-numeric: tabular-nums; font-size: 14px; }
+  table.targets thead, table.targets tbody { display: grid; grid-template-columns: 1fr 1fr; column-gap: 1px; background: var(--border); }
+  table.targets tbody { grid-auto-flow: column; grid-template-rows: repeat(10, auto); }
+  table.targets tr { display: grid; grid-template-columns: 3em 1fr 3.6em; background: var(--surface); }
+  th, td { padding: 5px 12px; text-align: right; }
+  th:first-child, td:first-child { text-align: left; }
+  thead th {
+    background: var(--surface-2);
+    color: var(--muted);
+    font-weight: 600;
+    font-size: 12px;
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+    white-space: nowrap;
+  }
+  table.targets tbody tr:nth-child(even) { background: #191e29; }
+  tbody tr.is-longest td:nth-child(2) { color: #fca5a5; font-weight: 650; }
+  tbody tr.is-shortest td:nth-child(2) { color: var(--accent); font-weight: 650; }
+  td.has-miss { color: var(--danger); font-weight: 650; }
+
+  .actions { display: flex; align-items: center; gap: 12px; margin-top: 22px; flex-wrap: wrap; }
+  .status { margin: 14px 0 0; min-height: 1.5em; font-weight: 550; color: var(--muted); }
+  .status.ok { color: var(--accent); }
+  .status code { font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size: 0.92em; color: var(--text); }
+
+  /* ---------- Oppsummering ---------- */
+  .final-head { display: flex; justify-content: space-between; align-items: flex-end; gap: 16px; flex-wrap: wrap; margin-bottom: 18px; }
+  .chips { display: flex; gap: 8px; flex-wrap: wrap; }
+  .chip { font-size: 14px; padding: 5px 12px; border-radius: 999px; background: var(--surface-2); border: 1px solid var(--border); color: var(--muted); }
+  .chip b { color: var(--text); }
+  .final-grid { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1.35fr); gap: 20px; align-items: start; }
+  .medium-cards { display: grid; gap: 14px; }
+  .medium-card h3 { margin: 0 0 8px; font-size: 18px; display: flex; align-items: center; gap: 8px; }
+  .medium-card h3 i { width: 10px; height: 10px; border-radius: 50%; display: inline-block; }
+  .medium-card dl { margin: 0; display: grid; grid-template-columns: 1fr auto; row-gap: 4px; column-gap: 16px; font-size: 15px; }
+  .medium-card dt { color: var(--muted); }
+  .medium-card dd { margin: 0; text-align: right; font-weight: 650; font-variant-numeric: tabular-nums; }
+  .medium-card dd.better { color: var(--accent); }
+  table.summary { width: 100%; border-collapse: collapse; font-variant-numeric: tabular-nums; font-size: 15px; }
+  table.summary td, table.summary th { padding: 8px 14px; }
+  table.summary tbody tr { border-top: 1px solid var(--border); }
+  table.summary td.medium { text-align: left; white-space: nowrap; }
+  table.summary td.medium i { width: 8px; height: 8px; border-radius: 50%; display: inline-block; margin-right: 8px; vertical-align: middle; }
+  .verdict {
+    margin-top: 16px;
+    padding: 14px 18px;
+    border-radius: var(--radius);
+    background: linear-gradient(90deg, rgba(94, 234, 212, 0.10), rgba(167, 139, 250, 0.10));
+    border: 1px solid var(--border);
+    font-size: 16px;
+  }
+  .save-box { margin-top: 18px; }
+
+  @media (max-width: 1100px) {
+    .card .value { font-size: 26px; }
+  }
+</style>
+</head>
+<body>
+
+<!-- 1. Startskjerm med deltakerinfo -->
+<section class="screen" id="screen-start" data-testid="screen-start">
+  <div class="panel">
+    <span class="step"><span class="step-dots" id="start-dots"></span> Ny gjennomgang · 6 tester</span>
+    <h1>Mus <span class="vs">vs.</span> Trackpad</h1>
+    <p class="lead">En gjennomgang er 6 tester: først 3 × Trackpad test, så 3 × Ekstern mus test. 20 targets hver. Klikk så raskt og presist du kan.</p>
+    <div class="plan" aria-label="Rekkefølge">
+      <span class="tp">Trackpad 1</span><span class="tp">Trackpad 2</span><span class="tp">Trackpad 3</span>
+      <span class="em">Mus 1</span><span class="em">Mus 2</span><span class="em">Mus 3</span>
+    </div>
+    <p class="notice" id="start-notice" data-testid="notice" role="alert" hidden></p>
+    <form id="participant-form" novalidate>
+      <div class="form">
+        <div class="field">
+          <label for="age">Alder</label>
+          <input class="input" id="age" data-testid="age-input" type="number" inputmode="numeric" min="5" max="120" step="1" placeholder="f.eks. 24">
+        </div>
+        <div class="field">
+          <label for="gender">Kjønn</label>
+          <select class="select" id="gender" data-testid="gender-select">
+            <option value="">Velg …</option>
+            <option value="kvinne">Kvinne</option>
+            <option value="mann">Mann</option>
+            <option value="annet">Annet</option>
+            <option value="vil_ikke_oppgi">Vil ikke oppgi</option>
+          </select>
+        </div>
+        <div class="field full" role="radiogroup" aria-labelledby="pref-legend">
+          <span class="legend" id="pref-legend">Hva foretrekker du til vanlig?</span>
+          <div class="seg">
+            <label><input type="radio" name="preference" value="trackpad" data-testid="preference-trackpad"><span>Trackpad</span></label>
+            <label><input type="radio" name="preference" value="mus" data-testid="preference-mus"><span>Mus</span></label>
+            <label><input type="radio" name="preference" value="ingen" data-testid="preference-ingen"><span>Ingen</span></label>
+          </div>
+        </div>
+      </div>
+      <p class="form-error" id="form-error" data-testid="form-error" role="alert" hidden></p>
+      <div class="start-row">
+        <button class="btn btn-primary" id="start-button" data-testid="start-button" type="submit">Start gjennomgangen</button>
+        <span class="hint">Ingenting lagres før du selv velger det til slutt.</span>
+      </div>
+    </form>
+  </div>
+</section>
+
+<!-- 2. Instruksjonsskjerm -->
+<section class="screen" id="screen-instruction" data-testid="screen-instruction" hidden>
+  <div class="panel instruction">
+    <span class="step" id="instruction-step" data-testid="session-progress"></span>
+    <div class="big-title" id="instruction-title" data-testid="instruction-title">TRACKPAD TEST</div>
+    <div class="attempt" id="instruction-attempt" data-testid="instruction-attempt">Forsøk 1 av 3</div>
+    <p class="device" id="instruction-device" data-testid="instruction-device">Bruk kun trackpaden</p>
+    <p class="hint" id="instruction-hint"></p>
+    <p class="notice" id="instruction-notice" data-testid="instruction-notice" role="alert" hidden></p>
+    <div class="row">
+      <button class="btn btn-primary" id="instruction-start" data-testid="instruction-start">Start</button>
+      <button class="btn btn-secondary btn-small" id="abort-session" data-testid="abort-session">Avbryt gjennomgang</button>
+    </div>
+  </div>
+</section>
+
+<!-- 3. Selve testen -->
+<section id="screen-test" data-testid="screen-test" hidden>
+  <header class="test-header">
+    <div class="left">
+      <span class="title" id="test-title" data-testid="test-title">Trackpad test</span>
+      <span class="attempt-small" id="test-attempt" data-testid="test-attempt">forsøk 1 av 3</span>
+    </div>
+    <div class="progress" id="progress" data-testid="progress">Target 1 / 20</div>
+    <div class="right">
+      <span class="misses" id="header-misses" data-testid="header-misses">Bom: 0</span>
+      <span><span class="kbd">Esc</span> avbryter</span>
+    </div>
+  </header>
+  <div class="arena" id="arena" data-testid="arena">
+    <div class="countdown" id="countdown" data-testid="countdown" hidden>
+      <div class="num" id="countdown-num">3</div>
+      <div class="sub">Gjør deg klar …</div>
+    </div>
+    <div class="target" id="target" data-testid="target" hidden></div>
+  </div>
+</section>
+
+<!-- 4. Resultat for én test -->
+<section class="screen" id="screen-result" data-testid="screen-result" hidden>
+  <div class="result-wrap">
+    <div class="result-head">
+      <span class="step" id="result-step"></span>
+      <h2 style="margin-top:10px" id="result-title" data-testid="result-title">Resultat: Trackpad test</h2>
+      <p class="quip" id="result-quip"></p>
+    </div>
+    <div class="result-grid">
+      <div>
+        <div class="cards">
+          <div class="card accent" data-testid="stat-total" id="stat-total">
+            <div class="label">Total tid</div>
+            <div class="value" data-role="value"></div>
+            <div class="sub" data-role="sub"></div>
+          </div>
+          <div class="card" data-testid="stat-average" id="stat-average">
+            <div class="label">Gjennomsnitt per target</div>
+            <div class="value" data-role="value"></div>
+            <div class="sub" data-role="sub">Total tid / 20</div>
+          </div>
+          <div class="card" data-testid="stat-longest" id="stat-longest">
+            <div class="label">Lengste tid</div>
+            <div class="value" data-role="value"></div>
+            <div class="sub" data-role="sub"></div>
+          </div>
+          <div class="card" data-testid="stat-shortest" id="stat-shortest">
+            <div class="label">Korteste tid</div>
+            <div class="value" data-role="value"></div>
+            <div class="sub" data-role="sub"></div>
+          </div>
+          <div class="card wide" data-testid="stat-misses" id="stat-misses">
+            <div>
+              <div class="label">Antall bom</div>
+              <div class="sub" data-role="sub"></div>
+            </div>
+            <div class="value" data-role="value"></div>
+          </div>
+        </div>
+        <div class="actions">
+          <button class="btn btn-primary" id="next-button" data-testid="next-button">Neste test →</button>
+        </div>
+        <p class="status">Resultatet holdes i minnet til alle 6 testene er gjennomført.</p>
+      </div>
+      <div class="card table-card">
+        <span class="label">Alle targets</span>
+        <table class="targets" data-testid="result-table" id="result-table">
+          <thead>
+            <tr><th>Nr</th><th>Tid (ms)</th><th>Bom</th></tr>
+            <tr aria-hidden="true"><th>Nr</th><th>Tid (ms)</th><th>Bom</th></tr>
+          </thead>
+          <tbody></tbody>
+        </table>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- 5. Oppsummering og lagring -->
+<section class="screen" id="screen-final" data-testid="screen-final" hidden>
+  <div class="result-wrap">
+    <div class="final-head">
+      <div>
+        <span class="step"><span class="step-dots" id="final-dots"></span> Alle 6 tester ferdig</span>
+        <h2 style="margin:10px 0 0">Gjennomgang ferdig</h2>
+      </div>
+      <div class="chips" id="participant-chips" data-testid="participant-summary"></div>
+    </div>
+    <div class="final-grid">
+      <div class="medium-cards" id="medium-cards"></div>
+      <div>
+        <div class="card" style="padding:0;overflow:hidden">
+          <table class="summary" data-testid="summary-table" id="summary-table">
+            <thead><tr><th>Test</th><th>Forsøk</th><th>Total</th><th>Snitt</th><th>Bom</th></tr></thead>
+            <tbody></tbody>
+          </table>
+        </div>
+        <div class="verdict" id="verdict" data-testid="verdict"></div>
+      </div>
+    </div>
+    <div class="save-box">
+      <div class="actions" style="margin-top:0">
+        <button class="btn btn-primary" id="save-button" data-testid="save-button">Lagre gjennomgangen</button>
+        <button class="btn btn-secondary" id="discard-button" data-testid="discard-button">Ikke lagre</button>
+        <button class="btn btn-primary" id="restart-button" data-testid="restart-button" hidden>Ny gjennomgang</button>
+      </div>
+      <p class="status" id="save-status" data-testid="save-status" role="status"></p>
+    </div>
+  </div>
+</section>
+
+<script>
+'use strict';
+
+/* =====================================================================
+   Konstanter
+   ===================================================================== */
+const TARGET_COUNT = 20;
+const TARGET_DIAMETER = 64;
+const TARGET_RADIUS = TARGET_DIAMETER / 2;
+const EDGE_GAP = 16;
+const MIN_DISTANCE_FACTOR = 0.25;
+const COUNTDOWN_STEP_MS = 1000;
+const ATTEMPTS_PER_MEDIUM = 3;
+const SCHEMA_VERSION = 3;
+
+const TESTS = {
+  trackpad: {
+    type: 'trackpad',
+    label: 'Trackpad test',
+    short: 'Trackpad',
+    heading: 'TRACKPAD TEST',
+    device: 'Bruk kun trackpaden',
+    hint: 'Legg musa unna. Ingen juksing – vi ser deg (ikke egentlig).',
+    color: 'var(--accent)'
+  },
+  external_mouse: {
+    type: 'external_mouse',
+    label: 'Ekstern mus test',
+    short: 'Ekstern mus',
+    heading: 'EKSTERN MUS TEST',
+    device: 'Bruk kun den eksterne musa',
+    hint: 'Hendene vekk fra trackpaden. Nå er det musa sin tur til å skinne.',
+    color: 'var(--accent-2)'
+  }
+};
+const MEDIUMS = ['trackpad', 'external_mouse'];
+/** Rekkefølgen i en gjennomgang: 3 × trackpad, så 3 × mus. */
+const PLAN = MEDIUMS.flatMap(type =>
+  Array.from({ length: ATTEMPTS_PER_MEDIUM }, (_, i) => ({ type, attempt: i + 1 })));
+
+const GENDERS = { kvinne: 'Kvinne', mann: 'Mann', annet: 'Annet', vil_ikke_oppgi: 'Vil ikke oppgi' };
+const PREFERENCES = { trackpad: 'Trackpad', mus: 'Mus', ingen: 'Ingen' };
+
+/* =====================================================================
+   Rene funksjoner (testbare)
+   ===================================================================== */
+
+/** Runder av til én desimal og fjerner flyttallsstøy. */
+function round1(n) {
+  return Math.round(n * 10) / 10;
+}
+
+/**
+ * Beregner statistikk for en liste med target-tider.
+ * Ved likhet vinner det første target-et (laveste nummer).
+ * Indekser er 1-baserte. misses er valgfri liste med bom per target.
+ */
+function computeStats(timesMs, misses = []) {
+  if (!Array.isArray(timesMs) || timesMs.length === 0) {
+    throw new Error('computeStats: timesMs må være en ikke-tom liste');
+  }
+  let total = 0;
+  let longest = 0;
+  let shortest = 0;
+  for (let i = 0; i < timesMs.length; i++) {
+    const t = timesMs[i];
+    if (typeof t !== 'number' || !Number.isFinite(t) || t < 0) {
+      throw new Error('computeStats: ugyldig tid på indeks ' + i);
+    }
+    total += t;
+    if (t > timesMs[longest]) longest = i;
+    if (t < timesMs[shortest]) shortest = i;
+  }
+  return {
+    totalTimeMs: round1(total),
+    averageTimeMs: round1(total / timesMs.length),
+    longestTimeMs: timesMs[longest],
+    longestTargetIndex: longest + 1,
+    shortestTimeMs: timesMs[shortest],
+    shortestTargetIndex: shortest + 1,
+    totalMisses: misses.reduce((sum, m) => sum + m, 0)
+  };
+}
+
+/**
+ * Oppsummerer alle forsøk på ett medium.
+ * averageTimeMs er snittet over alle targets i alle forsøk.
+ * fastestAttempt er forsøket med lavest snitt (første ved likhet).
+ */
+function summarizeMedium(tests) {
+  if (!Array.isArray(tests) || tests.length === 0) {
+    throw new Error('summarizeMedium: trenger minst ett forsøk');
+  }
+  let total = 0, targets = 0, misses = 0, fastest = tests[0];
+  for (const t of tests) {
+    total += t.stats.totalTimeMs;
+    targets += t.targets.length;
+    misses += t.stats.totalMisses;
+    if (t.stats.averageTimeMs < fastest.stats.averageTimeMs) fastest = t;
+  }
+  return {
+    attempts: tests.length,
+    totalTimeMs: round1(total),
+    averageTimeMs: round1(total / targets),
+    totalMisses: misses,
+    fastestAttempt: fastest.attempt,
+    fastestAverageTimeMs: fastest.stats.averageTimeMs
+  };
+}
+
+/** Validerer deltakerinfo. Returnerer { participant } eller { error }. */
+function parseParticipant(ageRaw, gender, preference) {
+  const ageText = String(ageRaw).trim();
+  const age = Number(ageText);
+  if (ageText === '' || !Number.isInteger(age) || age < 5 || age > 120) {
+    return { error: 'Skriv inn alder som et helt tall mellom 5 og 120.' };
+  }
+  if (!Object.prototype.hasOwnProperty.call(GENDERS, gender)) return { error: 'Velg kjønn.' };
+  if (!Object.prototype.hasOwnProperty.call(PREFERENCES, preference)) {
+    return { error: 'Velg hva du foretrekker: trackpad, mus eller ingen.' };
+  }
+  return { participant: { age, gender, preference } };
+}
+
+/**
+ * Velger en tilfeldig senterposisjon i arenaen.
+ * - marg på radius + 16 px fra alle kanter
+ * - minst 25 % av min(bredde, høyde) fra forrige (droppes hvis umulig)
+ * - aldri samme posisjon som forrige
+ */
+function pickPosition(width, height, prev, rand = Math.random) {
+  const margin = TARGET_RADIUS + EDGE_GAP;
+  const minX = margin, maxX = Math.max(margin, width - margin);
+  const minY = margin, maxY = Math.max(margin, height - margin);
+  const sample = () => ({
+    x: Math.round(minX + rand() * (maxX - minX)),
+    y: Math.round(minY + rand() * (maxY - minY))
+  });
+  if (!prev) return sample();
+
+  const minDist = MIN_DISTANCE_FACTOR * Math.min(width, height);
+  // Er avstandskravet i det hele tatt mulig? Lengste avstand er til et hjørne.
+  const farthest = Math.max(
+    Math.hypot(prev.x - minX, prev.y - minY), Math.hypot(prev.x - maxX, prev.y - minY),
+    Math.hypot(prev.x - minX, prev.y - maxY), Math.hypot(prev.x - maxX, prev.y - maxY)
+  );
+  if (farthest >= minDist) {
+    for (let i = 0; i < 1000; i++) {
+      const p = sample();
+      if (Math.hypot(p.x - prev.x, p.y - prev.y) >= minDist) return p;
+    }
+  }
+  for (let i = 0; i < 1000; i++) {
+    const p = sample();
+    if (p.x !== prev.x || p.y !== prev.y) return p;
+  }
+  // Nødløsning (bittesmå arenaer): flytt til motsatt kant.
+  return { x: prev.x === minX ? maxX : minX, y: prev.y === minY ? maxY : minY };
+}
+
+function pad2(n) { return String(n).padStart(2, '0'); }
+
+/** gjennomgang_YYYY-MM-DD_HH-MM-SS.json (lokal tid). */
+function buildFilename(date) {
+  const d = date.getFullYear() + '-' + pad2(date.getMonth() + 1) + '-' + pad2(date.getDate());
+  const t = pad2(date.getHours()) + '-' + pad2(date.getMinutes()) + '-' + pad2(date.getSeconds());
+  return 'gjennomgang_' + d + '_' + t + '.json';
+}
+
+function formatMs(n) {
+  return n.toLocaleString('nb-NO', { minimumFractionDigits: 1, maximumFractionDigits: 1 }) + ' ms';
+}
+function formatSeconds(ms) {
+  return (ms / 1000).toLocaleString('nb-NO', { minimumFractionDigits: 2, maximumFractionDigits: 2 }) + ' s';
+}
+
+/** Bygger resultatet for én test (holdes i minnet og brukes av skjermene). */
+function buildTestResult(def, attempt, sequenceNumber, targets) {
+  return {
+    sequenceNumber,
+    testType: def.type,
+    attempt,
+    stats: computeStats(targets.map(t => t.timeMs), targets.map(t => t.misses)),
+    targets: targets.map(t => ({ ...t }))
+  };
+}
+
+/** Summerer hvert medium for oppsummeringsskjermen. */
+function summarizeSession(tests) {
+  const summary = {};
+  for (const type of MEDIUMS) summary[type] = summarizeMedium(tests.filter(t => t.testType === type));
+  return summary;
+}
+
+/**
+ * Bygger filen som lagres: kun deltakerinfo og tidene per test.
+ * timesBetweenClicksMs[i] er tiden fra target i+1 ble vist til det ble truffet. Neste target vises
+ * i samme øyeblikk som forrige treffes, så dette er tiden mellom to treff-klikk
+ * (for det første target-et: fra det dukket opp etter nedtellingen).
+ */
+function buildSessionResult(participant, tests, completedAt) {
+  return {
+    schemaVersion: SCHEMA_VERSION,
+    completedAt: completedAt.toISOString(),
+    participant: { age: participant.age, gender: participant.gender, preference: participant.preference },
+    tests: tests.map(t => ({
+      testType: t.testType,
+      attempt: t.attempt,
+      totalTimeMs: t.stats.totalTimeMs,
+      averageTimeMs: t.stats.averageTimeMs,
+      longestTimeMs: t.stats.longestTimeMs,
+      shortestTimeMs: t.stats.shortestTimeMs,
+      totalMisses: t.stats.totalMisses,
+      timesBetweenClicksMs: t.targets.map(x => x.timeMs)
+    }))
+  };
+}
+
+/* =====================================================================
+   UI-tilstand
+   ===================================================================== */
+const $ = id => document.getElementById(id);
+const screens = ['screen-start', 'screen-instruction', 'screen-test', 'screen-result', 'screen-final'];
+
+const state = {
+  session: null,   // { participant, startedAt, step, tests, result, decision }
+  run: null        // aktiv testkjøring
+};
+
+function showScreen(id) {
+  for (const s of screens) $(s).hidden = s !== id;
+}
+
+/** Seks prikker: ferdige tester i mediets farge, aktiv test hvit. */
+function renderDots(el, doneCount, currentIndex) {
+  el.textContent = '';
+  PLAN.forEach((p, i) => {
+    const dot = document.createElement('i');
+    if (i < doneCount) dot.className = 'done-' + p.type;
+    else if (i === currentIndex) dot.className = 'now';
+    el.appendChild(dot);
+  });
+}
+
+function goToStart(message) {
+  stopRun();
+  state.session = null;
+  const notice = $('start-notice');
+  notice.textContent = message || '';
+  notice.hidden = !message;
+  $('form-error').hidden = true;
+  $('participant-form').reset();
+  renderDots($('start-dots'), 0, -1);
+  showScreen('screen-start');
+  $('age').focus();
+}
+
+function onStartSubmit(e) {
+  e.preventDefault();
+  const pref = document.querySelector('input[name=preference]:checked');
+  const parsed = parseParticipant($('age').value, $('gender').value, pref ? pref.value : '');
+  const err = $('form-error');
+  if (parsed.error) {
+    err.textContent = parsed.error;
+    err.hidden = false;
+    return;
+  }
+  err.hidden = true;
+  $('start-notice').hidden = true;
+  state.session = {
+    participant: parsed.participant,
+    startedAt: new Date(),
+    step: 0,
+    tests: [],
+    result: null,
+    decision: null
+  };
+  goToInstruction();
+}
+
+function goToInstruction(notice) {
+  const session = state.session;
+  const { type, attempt } = PLAN[session.step];
+  const def = TESTS[type];
+  const step = $('instruction-step');
+  step.innerHTML = '<span class="step-dots"></span> Test ' + (session.step + 1) + ' av ' + PLAN.length;
+  renderDots(step.querySelector('.step-dots'), session.step, session.step);
+  $('instruction-title').textContent = def.heading;
+  $('instruction-attempt').textContent = 'Forsøk ' + attempt + ' av ' + ATTEMPTS_PER_MEDIUM;
+  $('instruction-device').textContent = def.device;
+  $('instruction-hint').innerHTML = (attempt === 1 ? def.hint : 'Samme opplegg som sist. Klarer du å slå deg selv?') +
+    '<br>Klikk på sirkelen så fort du kan. <span class="kbd">Esc</span> avbryter testen.';
+  const n = $('instruction-notice');
+  n.textContent = notice || '';
+  n.hidden = !notice;
+  resetAbortButton();
+  showScreen('screen-instruction');
+  $('instruction-start').focus();
+}
+
+/* «Avbryt gjennomgang» krever to klikk, så den ikke trykkes ved et uhell. */
+function resetAbortButton() {
+  const b = $('abort-session');
+  b.dataset.armed = '';
+  b.textContent = 'Avbryt gjennomgang';
+  b.className = 'btn btn-secondary btn-small';
+}
+function onAbortSession() {
+  const b = $('abort-session');
+  if (b.dataset.armed !== '1') {
+    b.dataset.armed = '1';
+    b.textContent = 'Klikk igjen for å avbryte – ingenting lagres';
+    b.className = 'btn btn-danger btn-small';
+    return;
+  }
+  goToStart('Gjennomgangen ble avbrutt. Ingenting ble lagret.');
+}
+
+/* ---------- Testkjøring ---------- */
+function stopRun() {
+  const run = state.run;
+  if (!run) return;
+  run.phase = 'stopped';
+  clearTimeout(run.countdownTimer);
+  state.run = null;
+  $('target').hidden = true;
+  $('countdown').hidden = true;
+}
+
+/** Avbryter pågående test og går tilbake til instruksjonen for samme forsøk. */
+function abortRun(message) {
+  stopRun();
+  goToInstruction(message);
+}
+
+function startTest() {
+  const session = state.session;
+  const { type, attempt } = PLAN[session.step];
+  const def = TESTS[type];
+  $('test-title').textContent = def.label;
+  $('test-attempt').textContent = 'forsøk ' + attempt + ' av ' + ATTEMPTS_PER_MEDIUM;
+  $('progress').textContent = 'Target 1 / ' + TARGET_COUNT;
+  $('header-misses').textContent = 'Bom: 0';
+  $('target').hidden = true;
+  showScreen('screen-test');
+
+  const arena = $('arena');
+  state.run = {
+    def,
+    attempt,
+    phase: 'countdown',
+    arena: { width: arena.clientWidth, height: arena.clientHeight },
+    targets: [],
+    index: 0,
+    pos: null,
+    shownAt: null,
+    currentMisses: 0,
+    totalMisses: 0,
+    token: 0,
+    countdownTimer: null
+  };
+  runCountdown(state.run, 3);
+}
+
+function runCountdown(run, n) {
+  if (state.run !== run || run.phase !== 'countdown') return;
+  const cd = $('countdown');
+  if (n === 0) {
+    cd.hidden = true;
+    run.phase = 'running';
+    showTarget(run);
+    return;
+  }
+  cd.hidden = false;
+  const num = $('countdown-num');
+  num.textContent = String(n);
+  // restart animasjonen
+  num.style.animation = 'none';
+  void num.offsetWidth;
+  num.style.animation = '';
+  run.countdownTimer = setTimeout(() => runCountdown(run, n - 1), COUNTDOWN_STEP_MS);
+}
+
+function showTarget(run) {
+  const pos = pickPosition(run.arena.width, run.arena.height, run.pos);
+  run.pos = pos;
+  run.shownAt = null;
+  run.currentMisses = 0;
+  const token = ++run.token;
+
+  const el = $('target');
+  el.style.left = (pos.x - TARGET_RADIUS) + 'px';
+  el.style.top = (pos.y - TARGET_RADIUS) + 'px';
+  el.dataset.index = String(run.index + 1);
+  el.dataset.x = String(pos.x);
+  el.dataset.y = String(pos.y);
+  el.dataset.ready = '0';
+  el.hidden = false;
+  $('progress').textContent = 'Target ' + (run.index + 1) + ' / ' + TARGET_COUNT;
+
+  // Tiden starter når target-et faktisk males: neste animasjonsramme etter DOM-oppdateringen.
+  requestAnimationFrame(() => {
+    if (state.run !== run || run.token !== token) return;
+    run.shownAt = performance.now();
+    el.dataset.ready = '1';
+  });
+}
+
+function registerMiss(run, x, y) {
+  run.currentMisses++;
+  run.totalMisses++;
+  const misses = $('header-misses');
+  misses.textContent = 'Bom: ' + run.totalMisses;
+  misses.classList.add('bump');
+  setTimeout(() => misses.classList.remove('bump'), 300);
+
+  const arena = $('arena');
+  arena.classList.remove('miss-flash');
+  void arena.offsetWidth;
+  arena.classList.add('miss-flash');
+
+  const dot = document.createElement('div');
+  dot.className = 'miss-dot';
+  dot.style.left = x + 'px';
+  dot.style.top = y + 'px';
+  arena.appendChild(dot);
+  setTimeout(() => dot.remove(), 500);
+}
+
+function onArenaMouseDown(e) {
+  if (e.button !== 0) return;
+  e.preventDefault();
+  const run = state.run;
+  if (!run || run.phase !== 'running' || run.shownAt === null) return;
+
+  const now = performance.now();
+  const rect = $('arena').getBoundingClientRect();
+  const cx = e.clientX - rect.left;
+  const cy = e.clientY - rect.top;
+  const dist = Math.hypot(cx - run.pos.x, cy - run.pos.y);
+
+  if (dist <= TARGET_RADIUS) {
+    run.targets.push({
+      index: run.index + 1,
+      timeMs: round1(now - run.shownAt),
+      misses: run.currentMisses
+    });
+    run.index++;
+    if (run.index >= TARGET_COUNT) finishTest(run);
+    else showTarget(run);
+  } else {
+    registerMiss(run, cx, cy);
+  }
+}
+
+function finishTest(run) {
+  run.phase = 'done';
+  $('target').hidden = true;
+  const session = state.session;
+  const result = buildTestResult(run.def, run.attempt, session.step + 1, run.targets);
+  session.tests.push(result);
+  session.step++;
+  state.run = null;
+  renderResult(result);
+}
+
+/* ---------- Resultat for én test ---------- */
+function quipFor(avg) {
+  if (avg < 450) return 'Lynrask! Har du gjort dette før?';
+  if (avg < 750) return 'Solid innsats – rask og stødig.';
+  if (avg < 1100) return 'Helt grei fart. Ingen skam i det.';
+  return 'Rolig og behersket. Presisjon over fart, kanskje?';
+}
+
+function setCard(id, value, sub, raw) {
+  const card = $(id);
+  card.querySelector('[data-role=value]').textContent = value;
+  if (sub !== undefined) card.querySelector('[data-role=sub]').textContent = sub;
+  card.dataset.value = String(raw);
+}
+
+function renderResult(result) {
+  const def = TESTS[result.testType];
+  const s = result.stats;
+  const session = state.session;
+
+  $('result-step').textContent = 'Test ' + result.sequenceNumber + ' av ' + PLAN.length + ' · ferdig';
+  $('result-title').textContent = 'Resultat: ' + def.label + ' – forsøk ' + result.attempt + ' av ' + ATTEMPTS_PER_MEDIUM;
+  $('result-quip').textContent = quipFor(s.averageTimeMs);
+
+  setCard('stat-total', formatMs(s.totalTimeMs), formatSeconds(s.totalTimeMs), s.totalTimeMs);
+  setCard('stat-average', formatMs(s.averageTimeMs), 'Total tid / ' + TARGET_COUNT, s.averageTimeMs);
+  setCard('stat-longest', formatMs(s.longestTimeMs), 'Target ' + s.longestTargetIndex, s.longestTimeMs);
+  $('stat-longest').dataset.index = String(s.longestTargetIndex);
+  setCard('stat-shortest', formatMs(s.shortestTimeMs), 'Target ' + s.shortestTargetIndex, s.shortestTimeMs);
+  $('stat-shortest').dataset.index = String(s.shortestTargetIndex);
+  setCard('stat-misses', s.totalMisses.toLocaleString('nb-NO'),
+    s.totalMisses === 0 ? 'Null bom. Kirurgisk.' : 'Klikk utenfor target (tiden løp videre)', s.totalMisses);
+
+  const tbody = $('result-table').querySelector('tbody');
+  tbody.textContent = '';
+  for (const t of result.targets) {
+    const tr = document.createElement('tr');
+    tr.dataset.index = String(t.index);
+    tr.dataset.time = String(t.timeMs);
+    tr.dataset.misses = String(t.misses);
+    if (t.index === s.longestTargetIndex) tr.classList.add('is-longest');
+    if (t.index === s.shortestTargetIndex) tr.classList.add('is-shortest');
+    tr.innerHTML = '<td>' + t.index + '</td><td>' +
+      t.timeMs.toLocaleString('nb-NO', { minimumFractionDigits: 1, maximumFractionDigits: 1 }) +
+      '</td><td' + (t.misses ? ' class="has-miss"' : '') + '>' + t.misses + '</td>';
+    tbody.appendChild(tr);
+  }
+
+  const next = $('next-button');
+  if (session.step < PLAN.length) {
+    const p = PLAN[session.step];
+    next.textContent = 'Neste: ' + TESTS[p.type].label + ', forsøk ' + p.attempt + ' av ' + ATTEMPTS_PER_MEDIUM + ' →';
+  } else {
+    next.textContent = 'Se oppsummering →';
+  }
+  showScreen('screen-result');
+  next.focus();
+}
+
+function onNext() {
+  if (state.session.step < PLAN.length) goToInstruction();
+  else renderFinal();
+}
+
+/* ---------- Oppsummering ---------- */
+function renderFinal() {
+  const session = state.session;
+  if (!session.result) {
+    session.result = buildSessionResult(session.participant, session.tests, new Date());
+  }
+  const summary = summarizeSession(session.tests);
+  const p = session.participant;
+
+  renderDots($('final-dots'), PLAN.length, -1);
+  const chips = $('participant-chips');
+  chips.textContent = '';
+  for (const [label, value] of [['Alder', p.age], ['Kjønn', GENDERS[p.gender]], ['Foretrekker', PREFERENCES[p.preference]]]) {
+    const c = document.createElement('span');
+    c.className = 'chip';
+    c.append(label + ': ');
+    const b = document.createElement('b');
+    b.textContent = String(value);
+    c.append(b);
+    chips.append(c);
+  }
+
+  // Ett kort per medium
+  const cards = $('medium-cards');
+  cards.textContent = '';
+  const rows = [
+    ['Snitt per target', s => formatMs(s.averageTimeMs), 'averageTimeMs'],
+    ['Total tid (3 forsøk)', s => formatMs(s.totalTimeMs), 'totalTimeMs'],
+    ['Beste forsøk', s => '#' + s.fastestAttempt + ' · ' + formatMs(s.fastestAverageTimeMs), 'fastestAverageTimeMs'],
+    ['Bom totalt', s => s.totalMisses.toLocaleString('nb-NO'), 'totalMisses']
+  ];
+  for (const type of MEDIUMS) {
+    const s = summary[type];
+    const other = summary[type === 'trackpad' ? 'external_mouse' : 'trackpad'];
+    const card = document.createElement('div');
+    card.className = 'card medium-card';
+    card.setAttribute('data-testid', 'final-' + type);
+    const h = document.createElement('h3');
+    h.innerHTML = '<i style="background:' + TESTS[type].color + '"></i>';
+    h.append(TESTS[type].short);
+    const dl = document.createElement('dl');
+    for (const [label, fmt, key] of rows) {
+      const dt = document.createElement('dt');
+      dt.textContent = label;
+      const dd = document.createElement('dd');
+      dd.textContent = fmt(s);
+      dd.dataset.key = key;
+      dd.dataset.value = String(s[key]);
+      if (s[key] < other[key]) dd.className = 'better';
+      dl.append(dt, dd);
+    }
+    card.append(h, dl);
+    cards.append(card);
+  }
+
+  // Tabell over alle 6 tester
+  const tbody = $('summary-table').querySelector('tbody');
+  tbody.textContent = '';
+  for (const t of session.tests) {
+    const tr = document.createElement('tr');
+    tr.dataset.type = t.testType;
+    tr.dataset.attempt = String(t.attempt);
+    tr.dataset.total = String(t.stats.totalTimeMs);
+    tr.dataset.average = String(t.stats.averageTimeMs);
+    tr.dataset.misses = String(t.stats.totalMisses);
+    tr.innerHTML = '<td class="medium"><i style="background:' + TESTS[t.testType].color + '"></i>' + TESTS[t.testType].short + '</td>' +
+      '<td>' + t.attempt + ' av ' + ATTEMPTS_PER_MEDIUM + '</td>' +
+      '<td>' + formatMs(t.stats.totalTimeMs) + '</td>' +
+      '<td>' + formatMs(t.stats.averageTimeMs) + '</td>' +
+      '<td>' + t.stats.totalMisses + '</td>';
+    tbody.appendChild(tr);
+  }
+
+  const a = summary.trackpad.averageTimeMs, b = summary.external_mouse.averageTimeMs;
+  const verdict = $('verdict');
+  if (a === b) {
+    verdict.textContent = 'Helt likt! Trackpad og mus endte på nøyaktig samme snitt. Det er nesten mistenkelig.';
+  } else {
+    const pct = Math.abs(a - b) / Math.max(a, b) * 100;
+    verdict.textContent = (b < a ? 'Ekstern mus' : 'Trackpad') + ' vant med ' +
+      pct.toLocaleString('nb-NO', { maximumFractionDigits: 1 }) + ' % lavere snitt per target (' +
+      formatMs(Math.min(a, b)) + ' mot ' + formatMs(Math.max(a, b)) + ').';
+  }
+
+  $('save-button').disabled = false;
+  $('discard-button').disabled = false;
+  $('restart-button').hidden = true;
+  const status = $('save-status');
+  status.textContent = 'Lagre alle 6 testene sammen med alder, kjønn og preferanse – eller ingen av dem.';
+  status.className = 'status';
+  showScreen('screen-final');
+  $('save-button').focus();
+}
+
+function downloadJson(filename, data) {
+  const blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = filename;
+  document.body.appendChild(a);
+  a.click();
+  a.remove();
+  setTimeout(() => URL.revokeObjectURL(url), 2000);
+}
+
+/**
+ * Når appen kjøres via `npm start` (server.mjs) skrives filen rett til resultater/-mappen.
+ * Ellers (file:// eller annen statisk server) faller vi tilbake til vanlig nedlasting.
+ */
+async function saveToResultsFolder(filename, data) {
+  if (!location.protocol.startsWith('http')) return null;
+  try {
+    const res = await fetch('api/save?filename=' + encodeURIComponent(filename), {
+      method: 'POST',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify(data, null, 2)
+    });
+    if (!res.ok) return null;
+    return (await res.json()).path;
+  } catch {
+    return null;
+  }
+}
+
+async function onSave() {
+  const session = state.session;
+  if (!session || !session.result || session.decision) return;
+  session.decision = 'saving';
+  $('save-button').disabled = true;
+  $('discard-button').disabled = true;
+
+  const filename = buildFilename(new Date(session.result.completedAt));
+  const savedPath = await saveToResultsFolder(filename, session.result);
+  if (!savedPath) downloadJson(filename, session.result);
+  session.decision = 'saved';
+
+  const status = $('save-status');
+  status.textContent = '';
+  const code = document.createElement('code');
+  code.textContent = savedPath || filename;
+  if (savedPath) {
+    status.append('Lagret i ', code);
+  } else {
+    status.append('Lastet ned som ', code, ' – flytt filen til resultater/-mappen');
+  }
+  status.dataset.mode = savedPath ? 'folder' : 'download';
+  status.className = 'status ok';
+  afterDecision();
+}
+
+function onDiscard() {
+  const session = state.session;
+  if (!session || !session.result || session.decision) return;
+  session.decision = 'discarded';
+  const status = $('save-status');
+  status.textContent = 'Gjennomgangen ble ikke lagret';
+  status.className = 'status';
+  afterDecision();
+}
+
+function afterDecision() {
+  $('save-button').disabled = true;
+  $('discard-button').disabled = true;
+  const restart = $('restart-button');
+  restart.hidden = false;
+  restart.focus();
+}
+
+/* =====================================================================
+   Hendelser
+   ===================================================================== */
+$('participant-form').addEventListener('submit', onStartSubmit);
+$('participant-form').addEventListener('input', () => { $('form-error').hidden = true; });
+$('instruction-start').addEventListener('click', startTest);
+$('abort-session').addEventListener('click', onAbortSession);
+$('next-button').addEventListener('click', onNext);
+$('save-button').addEventListener('click', onSave);
+$('discard-button').addEventListener('click', onDiscard);
+$('restart-button').addEventListener('click', () => goToStart());
+
+const arenaEl = $('arena');
+arenaEl.addEventListener('mousedown', onArenaMouseDown);
+arenaEl.addEventListener('contextmenu', e => e.preventDefault());
+arenaEl.addEventListener('selectstart', e => e.preventDefault());
+arenaEl.addEventListener('dragstart', e => e.preventDefault());
+
+document.addEventListener('keydown', e => {
+  if (e.key === 'Escape' && state.run) {
+    e.preventDefault();
+    abortRun('Testen ble avbrutt med Esc. Dette forsøket må tas på nytt.');
+  }
+});
+
+window.addEventListener('resize', () => {
+  if (state.run && (state.run.phase === 'countdown' || state.run.phase === 'running')) {
+    abortRun('Vinduet ble endret – ta testen på nytt');
+  }
+});
+
+renderDots($('start-dots'), 0, -1);
+
+// Eksponer rene funksjoner for testing.
+window.MouseTest = {
+  computeStats, summarizeMedium, parseParticipant, pickPosition, buildFilename,
+  buildTestResult, buildSessionResult, summarizeSession, saveToResultsFolder, formatMs, formatSeconds, round1,
+  PLAN, TARGET_COUNT, TARGET_DIAMETER, EDGE_GAP, ATTEMPTS_PER_MEDIUM
+};
+</script>
+</body>
+</html>

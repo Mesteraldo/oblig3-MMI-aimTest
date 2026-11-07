@@ -5,3 +5,11 @@ resultater/*.json
 
 # Genereres på nytt ved hver testkjøring
 tests/screenshots/
+
+# Hemmeligheter
+.env
+.env.*
+!.env.example
+
+# Lokale innsendinger (venter/godkjent/avvist)
+resultater/*/

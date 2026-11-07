@@ -14,6 +14,8 @@ const SHOT_DIR = path.join(ROOT, 'tests', 'screenshots');
 const OUT_DIR = path.join(ROOT, 'tests', 'output');
 // Testkjøringen bruker sin egen resultater-mappe, så ekte data i ./resultater ikke blandes med testdata.
 const TEST_RESULTS_DIR = path.join(OUT_DIR, 'resultater');
+const PENDING_DIR = path.join(TEST_RESULTS_DIR, 'venter');
+const ADMIN_PASSWORD = 'test-passord';
 
 const TARGETS = 20;
 const MARGIN = 32 + 16;
@@ -89,7 +91,8 @@ async function shot(page, run, name) {
 const visibleTargets = page => page.locator('[data-testid=target]:visible').count();
 // textContent (ikke innerText) slik at CSS text-transform ikke påvirker sammenligningen.
 const text = async (page, id) => norm((await page.getByTestId(id).textContent()).replace(/\s+/g, ' ').trim());
-const listResults = async () => (await readdir(TEST_RESULTS_DIR)).filter(f => f.endsWith('.json')).sort();
+const listResults = async (state = 'venter') =>
+  (await readdir(path.join(TEST_RESULTS_DIR, state)).catch(() => [])).filter(f => f.endsWith('.json')).sort();
 
 async function fillParticipant(page, p) {
   await page.getByTestId('age-input').fill(String(p.age));
@@ -100,7 +103,7 @@ async function fillParticipant(page, p) {
 /** Starter server.mjs på en ledig port med testens egen resultater-mappe. */
 async function startAppServer() {
   const child = spawn(process.execPath, [path.join(ROOT, 'server.mjs')], {
-    env: { ...process.env, PORT: '0', RESULTS_DIR: TEST_RESULTS_DIR },
+    env: { ...process.env, PORT: '0', RESULTS_DIR: TEST_RESULTS_DIR, ADMIN_PASSWORD },
     stdio: ['ignore', 'pipe', 'pipe']
   });
   const url = await new Promise((resolve, reject) => {
@@ -454,12 +457,14 @@ async function runSession(browser, run, appUrl) {
       const filesAfter = await listResults();
       const newFiles = filesAfter.filter(f => !filesBefore.includes(f));
       const status = await text(page, 'save-status');
-      check(`${tag} «Lagre» via npm start skriver nøyaktig én fil til resultater/ og laster ikke ned`,
+      check(`${tag} «Send inn» via serveren skriver nøyaktig én fil til venter/ og laster ikke ned`,
         newFiles.length === 1 && downloads.length === 0, newFiles.join(', '));
-      check(`${tag} filnavn gjennomgang_YYYY-MM-DD_HH-MM-SS.json og status «Lagret i resultater/…»`,
-        FILENAME.test(newFiles[0]) && status === `Lagret i resultater/${newFiles[0]}` &&
-        (await page.getByTestId('save-status').getAttribute('data-mode')) === 'folder', status);
-      const json = JSON.parse(await readFile(path.join(TEST_RESULTS_DIR, newFiles[0]), 'utf8'));
+      check(`${tag} filnavn gjennomgang_YYYY-MM-DD_HH-MM-SS.json og status «venter på godkjenning»`,
+        FILENAME.test(newFiles[0]) && status === 'Takk! Gjennomgangen er sendt inn og lagres når den er godkjent.' &&
+        (await page.getByTestId('save-status').getAttribute('data-mode')) === 'server', status);
+      check(`${tag} ingenting havner i godkjent/ før admin godkjenner`, (await listResults('godkjent')).length === 0);
+      const json = JSON.parse(await readFile(path.join(PENDING_DIR, newFiles[0]), 'utf8'));
+      lastValidSession = json;
       const errs = validateSessionJson(json, run.participant, observed);
       check(`${tag} JSON: kun alder/kjønn/preferanse + per test total, snitt, tid mellom klikk, bom, lengste og korteste`,
         errs.length === 0, errs.slice(0, 5).join('; '));
@@ -467,7 +472,7 @@ async function runSession(browser, run, appUrl) {
         await page.getByTestId('save-button').isDisabled() && await page.getByTestId('discard-button').isDisabled());
       await shot(page, run, '05-final-saved');
       if (run.printJson) {
-        console.log(`\n----- Eksempel-JSON fra testkjøringen (${path.relative(ROOT, path.join(TEST_RESULTS_DIR, newFiles[0]))}) -----`);
+        console.log(`\n----- Eksempel-JSON fra testkjøringen (${path.relative(ROOT, path.join(PENDING_DIR, newFiles[0]))}) -----`);
         console.log(prettyJson(json));
         console.log('----- slutt på JSON -----\n');
       }
@@ -490,10 +495,10 @@ async function runSession(browser, run, appUrl) {
       await page.getByTestId('discard-button').click();
       await sleep(1500);
       const st = await text(page, 'save-status');
-      check(`${tag} «Ikke lagre» gir verken fil i resultater/ eller nedlasting`,
+      check(`${tag} «Ikke send inn» gir verken fil i venter/ eller nedlasting`,
         downloads.length === 0 && (await listResults()).length === filesBefore.length);
-      check(`${tag} viser «Gjennomgangen ble ikke lagret», knappene deaktiveres`,
-        st === 'Gjennomgangen ble ikke lagret' && await page.getByTestId('save-button').isDisabled() &&
+      check(`${tag} viser «Gjennomgangen ble ikke sendt inn», knappene deaktiveres`,
+        st === 'Gjennomgangen ble ikke sendt inn' && await page.getByTestId('save-button').isDisabled() &&
         await page.getByTestId('restart-button').isVisible(), st);
       await shot(page, run, '05-final-discarded');
     }
@@ -592,37 +597,131 @@ async function unitTests(browser) {
   await page.close();
 }
 
-/* ---------- server.mjs: API og sikkerhet ---------- */
+/* ---------- server.mjs: API, godkjenning og sikkerhet ---------- */
+let lastValidSession = null;
+
+/** En gyldig gjennomgang i appens format (brukes når vi tester API-et direkte). */
+function fakeSession() {
+  const times = Array.from({ length: 20 }, (_, i) => 500 + i * 10);
+  const total = times.reduce((a, b) => a + b, 0);
+  return {
+    schemaVersion: 3,
+    completedAt: '2026-11-02T12:00:00.000Z',
+    participant: { age: 30, gender: 'mann', preference: 'mus' },
+    tests: PLAN.map(p => ({
+      testType: p.type, attempt: p.attempt, totalTimeMs: total, averageTimeMs: total / 20,
+      longestTimeMs: Math.max(...times), shortestTimeMs: Math.min(...times), totalMisses: 2, timesBetweenClicksMs: times
+    }))
+  };
+}
+
 async function serverTests(appUrl) {
-  const valid = { schemaVersion: 3, completedAt: '2026-11-02T12:00:00.000Z', participant: { age: 1, gender: 'mann', preference: 'mus' }, tests: [] };
-  const post = (name, body) => fetch(new URL('api/save?filename=' + encodeURIComponent(name), appUrl),
-    { method: 'POST', headers: { 'content-type': 'application/json' }, body });
+  const valid = fakeSession();
+  const post = (name, body, headers = {}) => fetch(new URL('api/save?filename=' + encodeURIComponent(name), appUrl),
+    { method: 'POST', headers: { 'content-type': 'application/json', ...headers }, body });
   const before = await listResults();
 
   const ok1 = await post('gjennomgang_2020-01-01_00-00-00.json', JSON.stringify(valid));
-  const ok2 = await post('gjennomgang_2020-01-01_00-00-00.json', JSON.stringify(valid));
-  const p1 = (await ok1.json()).path, p2 = (await ok2.json()).path;
-  check('server: lagrer i resultater/ og overskriver aldri (samme navn → -2)',
-    ok1.status === 200 && ok2.status === 200 &&
-    p1 === 'resultater/gjennomgang_2020-01-01_00-00-00.json' && p2 === 'resultater/gjennomgang_2020-01-01_00-00-00-2.json', `${p1}, ${p2}`);
-  await rm(path.join(TEST_RESULTS_DIR, 'gjennomgang_2020-01-01_00-00-00.json'));
-  await rm(path.join(TEST_RESULTS_DIR, 'gjennomgang_2020-01-01_00-00-00-2.json'));
+  const ok2 = await post('gjennomgang_2020-01-01_00-00-00.json', JSON.stringify({ ...valid, ekstra: 'fjernes' }));
+  const b1 = await ok1.json(), b2 = await ok2.json();
+  check('server: innsending havner i venter/ og overskriver aldri (samme navn → -2)',
+    ok1.status === 200 && ok2.status === 200 && b1.status === 'venter' &&
+    b1.id === 'gjennomgang_2020-01-01_00-00-00.json' && b2.id === 'gjennomgang_2020-01-01_00-00-00-2.json', JSON.stringify([b1, b2]));
+  const stored = JSON.parse(await readFile(path.join(PENDING_DIR, b2.id), 'utf8'));
+  check('server: ukjente felt fjernes før lagring', !('ekstra' in stored) && stored.tests.length === 6);
 
+  const tooFew = { ...valid, tests: valid.tests.slice(0, 5) };
+  const badAge = { ...valid, participant: { ...valid.participant, age: 999 } };
+  const badTimes = { ...valid, tests: valid.tests.map((t, i) => i ? t : { ...t, timesBetweenClicksMs: ['<script>'] }) };
   const bad = await Promise.all([
     post('../hack.json', JSON.stringify(valid)),
     post('gjennomgang_2020-01-01_00-00-00.json/../../x.json', JSON.stringify(valid)),
     post('gjennomgang_2020-01-01_00-00-00.json', '{ikke json'),
-    post('gjennomgang_2020-01-01_00-00-00.json', JSON.stringify({ foo: 1 }))
+    post('gjennomgang_2020-01-01_00-00-00.json', JSON.stringify({ foo: 1 })),
+    post('gjennomgang_2020-01-01_00-00-00.json', JSON.stringify(tooFew)),
+    post('gjennomgang_2020-01-01_00-00-00.json', JSON.stringify(badAge)),
+    post('gjennomgang_2020-01-01_00-00-00.json', JSON.stringify(badTimes))
   ]);
-  check('server: avviser ugyldig filnavn, path traversal, ugyldig JSON og feil form (400)',
-    bad.every(r => r.status === 400) && (await listResults()).length === before.length, bad.map(r => r.status).join(','));
+  check('server: avviser ugyldig filnavn, path traversal, ugyldig JSON, feil form og ugyldige verdier (400)',
+    bad.every(r => r.status === 400) && (await listResults()).length === before.length + 2, bad.map(r => r.status).join(','));
+
+  const rl = [];
+  for (let i = 0; i < 11; i++) rl.push((await post('gjennomgang_2020-01-01_00-00-00.json', '{', { 'cf-connecting-ip': '203.0.113.9' })).status);
+  check('server: maks 10 innsendinger per IP per 10 min (11. → 429)', rl.slice(0, 10).every(s => s === 400) && rl[10] === 429, rl.join(','));
 
   const get = await fetch(new URL('api/save', appUrl));
   const traversal = await fetch(new URL('/..%2fpackage.json', appUrl));
+  const adminFile = await fetch(new URL('/admin/../server.mjs', appUrl));
   const page = await fetch(appUrl);
-  check('server: GET /api/save → 405, path traversal ut av mouse-test/ blokkeres, index.html serveres',
-    get.status === 405 && [403, 404].includes(traversal.status) && page.status === 200 &&
-    (await page.text()).includes('Mus vs. Trackpad'), `${get.status}, ${traversal.status}, ${page.status}`);
+  const health = await fetch(new URL('healthz', appUrl));
+  check('server: GET /api/save → 405, path traversal blokkeres, index.html og /healthz svarer',
+    get.status === 405 && [403, 404].includes(traversal.status) && adminFile.status !== 200 && page.status === 200 &&
+    (await page.text()).includes('Mus vs. Trackpad') && health.status === 200,
+    `${get.status}, ${traversal.status}, ${adminFile.status}, ${page.status}, ${health.status}`);
+
+  // ----- Admin -----
+  const auth = pw => ({ authorization: 'Basic ' + Buffer.from('admin:' + pw).toString('base64') });
+  const admin = (p, opts = {}) => fetch(new URL(p, appUrl), { ...opts, headers: { ...auth(ADMIN_PASSWORD), ...(opts.headers || {}) } });
+  const action = (a, id, headers = { 'x-admin-action': '1' }) => admin(`api/admin/${a}?id=${encodeURIComponent(id)}`, { method: 'POST', headers });
+
+  const noAuth = await fetch(new URL('api/admin/list', appUrl));
+  const wrong = await fetch(new URL('api/admin/list', appUrl), { headers: auth('feil') });
+  const noAuthApprove = await fetch(new URL('api/admin/approve?id=' + b1.id, appUrl), { method: 'POST', headers: { 'x-admin-action': '1' } });
+  const adminPage = await admin('admin');
+  check('admin: krever passord (401 uten / med feil), admin-siden vises med riktig',
+    noAuth.status === 401 && wrong.status === 401 && noAuthApprove.status === 401 &&
+    adminPage.status === 200 && (await adminPage.text()).includes('Godkjenning'), `${noAuth.status}, ${wrong.status}, ${noAuthApprove.status}, ${adminPage.status}`);
+
+  const list = await (await admin('api/admin/list?state=venter')).json();
+  check('admin: lista viser innsendingene som venter', list.counts.venter >= 2 && list.items.some(i => i.id === b1.id), JSON.stringify(list.counts));
+
+  const csrf = await action('approve', b1.id, {});
+  check('admin: godkjenning uten x-admin-action-header avvises (CSRF-vern)', csrf.status === 403 && (await listResults('godkjent')).length === 0);
+
+  const approve = await action('approve', b1.id);
+  const reject = await action('reject', b2.id);
+  const again = await action('approve', b1.id);
+  const badId = await action('approve', '../../server.mjs');
+  check('admin: godkjenn flytter til godkjent/, avvis til avvist/, dobbel godkjenning → 404, ugyldig id → 400',
+    approve.status === 200 && reject.status === 200 && again.status === 404 && badId.status === 400 &&
+    (await listResults('godkjent')).includes(b1.id) && (await listResults('avvist')).includes(b2.id) &&
+    !(await listResults()).includes(b1.id), `${approve.status}, ${reject.status}, ${again.status}, ${badId.status}`);
+
+  const exp = await admin('api/admin/export');
+  const exported = await exp.json();
+  check('admin: eksporten inneholder bare godkjente', exp.status === 200 && exported.length === 1 && exported[0].id === b1.id);
+
+  const restore = await action('restore', b2.id);
+  const unapprove = await action('unapprove', b1.id);
+  check('admin: avvist kan angres, og godkjenning kan trekkes tilbake',
+    restore.status === 200 && unapprove.status === 200 && (await listResults()).includes(b1.id) && (await listResults()).includes(b2.id) &&
+    (await listResults('godkjent')).length === 0);
+  await rm(path.join(PENDING_DIR, b1.id));
+  await rm(path.join(PENDING_DIR, b2.id));
+}
+
+/** Admin-siden i nettleseren: godkjenn den ekte gjennomgangen som ble sendt inn i hovedflyten. */
+async function adminUiTest(browser, appUrl) {
+  const pending = await listResults();
+  if (pending.length !== 1) return check('admin-UI: én innsending venter fra hovedflyten', false, pending.join(','));
+  const context = await browser.newContext({ httpCredentials: { username: 'admin', password: ADMIN_PASSWORD }, viewport: { width: 1280, height: 800 } });
+  const page = await context.newPage();
+  const errors = [];
+  page.on('pageerror', e => errors.push(e.message));
+  await page.goto(new URL('admin', appUrl).href);
+  await page.locator('article.card').first().waitFor({ timeout: 5000 });
+  check('admin-UI: viser innsendingen med 6 tester og deltakerinfo',
+    (await page.locator('article.card').count()) === 1 && (await page.locator('article.card tbody tr').count()) === 6 &&
+    (await page.locator('article.card').textContent()).includes(`Alder: ${lastValidSession.participant.age}`));
+  await page.screenshot({ path: path.join(SHOT_DIR, 'admin-01-venter.png') });
+  await page.getByRole('button', { name: 'Godkjenn' }).click();
+  await page.getByText('Ingen her.').waitFor({ timeout: 5000 });
+  check('admin-UI: «Godkjenn» flytter filen til godkjent/',
+    (await listResults()).length === 0 && (await listResults('godkjent')).includes(pending[0]) && errors.length === 0, errors.join('; '));
+  await page.getByRole('tab', { name: /Godkjent/ }).click();
+  await page.locator('article.card').first().waitFor({ timeout: 5000 });
+  await page.screenshot({ path: path.join(SHOT_DIR, 'admin-02-godkjent.png') });
+  await context.close();
 }
 
 /* ---------- Statisk server uten API (som `npx serve mouse-test`) ---------- */
@@ -671,6 +770,8 @@ try {
     console.log(`\n=== Gjennomgang «${run.name}» ${run.width}×${run.height} via ${run.via === 'server' ? 'npm start' : 'file://'} ===`);
     await guarded(`gjennomgang ${run.name}`, () => runSession(browser, run, url));
   }
+  console.log('\n=== Admin-siden ===');
+  await guarded('admin-UI', () => adminUiTest(browser, appServer.url));
   console.log('');
   await guarded('statisk server', () => staticServerTest(browser));
 } finally {

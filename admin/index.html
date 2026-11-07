@@ -1,0 +1,192 @@
+<!doctype html>
+<html lang="nb">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <meta name="robots" content="noindex" />
+    <title>Godkjenning – Mus vs. Trackpad</title>
+    <style>
+      :root {
+        --black: #000000;
+        --navy: #14213d;
+        --orange: #fca311;
+        --platinum: #e5e5e5;
+        --white: #ffffff;
+        --bg: var(--black);
+        --surface: var(--navy);
+        --border: color-mix(in srgb, var(--navy) 68%, var(--platinum));
+        --text: var(--white);
+        --muted: color-mix(in srgb, var(--platinum) 74%, var(--navy));
+        --accent: var(--orange);
+        --danger: #f87171;
+        --radius: 14px;
+      }
+      * { box-sizing: border-box; }
+      body {
+        margin: 0;
+        background: var(--bg);
+        color: var(--text);
+        font-family: system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+        line-height: 1.5;
+      }
+      main { max-width: 1100px; margin: 0 auto; padding: 32px 16px 64px; }
+      h1 { font-size: 28px; margin: 0 0 4px; }
+      p.lead { color: var(--muted); margin: 0 0 20px; }
+      .bar { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; margin-bottom: 20px; }
+      .tab, .btn {
+        font: inherit;
+        border: 1px solid var(--border);
+        background: transparent;
+        color: var(--text);
+        border-radius: 999px;
+        padding: 6px 14px;
+        cursor: pointer;
+        text-decoration: none;
+      }
+      .tab[aria-selected="true"] { background: var(--accent); color: var(--black); border-color: var(--accent); }
+      .spacer { flex: 1; }
+      .btn.approve { background: var(--accent); color: var(--black); border-color: var(--accent); font-weight: 600; }
+      .btn.reject { color: var(--danger); border-color: color-mix(in srgb, var(--danger) 60%, transparent); }
+      .btn:disabled { opacity: 0.5; cursor: default; }
+      .card {
+        background: var(--surface);
+        border: 1px solid var(--border);
+        border-radius: var(--radius);
+        padding: 16px 18px;
+        margin-bottom: 14px;
+      }
+      .head { display: flex; flex-wrap: wrap; gap: 8px 16px; align-items: baseline; }
+      .id { font-family: ui-monospace, Menlo, monospace; font-size: 13px; color: var(--muted); }
+      .chips { display: flex; flex-wrap: wrap; gap: 6px; }
+      .chip { border: 1px solid var(--border); border-radius: 999px; padding: 1px 10px; font-size: 14px; }
+      .actions { display: flex; gap: 8px; margin-left: auto; }
+      .table-wrap { overflow-x: auto; margin-top: 12px; }
+      table { border-collapse: collapse; width: 100%; font-size: 14px; font-variant-numeric: tabular-nums; }
+      th, td { text-align: right; padding: 4px 10px; border-bottom: 1px solid var(--border); white-space: nowrap; }
+      th:first-child, td:first-child { text-align: left; }
+      th { color: var(--muted); font-weight: 500; }
+      .warn { color: var(--accent); font-size: 14px; margin-top: 8px; }
+      .empty, .error { color: var(--muted); padding: 24px 0; }
+      .error { color: var(--danger); }
+    </style>
+  </head>
+  <body>
+    <main>
+      <h1>Godkjenning av gjennomganger</h1>
+      <p class="lead">
+        Nye innsendinger venter her. Bare godkjente havner i <code>godkjent/</code> og i eksporten. Avviste kan angres.
+      </p>
+      <div class="bar" role="tablist">
+        <button class="tab" role="tab" data-state="venter">Venter</button>
+        <button class="tab" role="tab" data-state="godkjent">Godkjent</button>
+        <button class="tab" role="tab" data-state="avvist">Avvist</button>
+        <span class="spacer"></span>
+        <a class="btn" href="/api/admin/export" download>Last ned godkjente (JSON)</a>
+      </div>
+      <div id="list" aria-live="polite"></div>
+    </main>
+
+    <script>
+      "use strict";
+      const LABEL = { venter: "Venter", godkjent: "Godkjent", avvist: "Avvist" };
+      const GENDER = { kvinne: "Kvinne", mann: "Mann", annet: "Annet", vil_ikke_oppgi: "Vil ikke oppgi" };
+      const PREF = { trackpad: "Trackpad", mus: "Mus", ingen: "Ingen" };
+      const TYPE = { trackpad: "Trackpad", external_mouse: "Ekstern mus" };
+      const ACTIONS = {
+        venter: [["approve", "Godkjenn", "approve"], ["reject", "Avvis", "reject"]],
+        godkjent: [["unapprove", "Angre godkjenning", ""]],
+        avvist: [["restore", "Tilbake til venter", ""]],
+      };
+      let current = "venter";
+
+      const el = (tag, props = {}, ...children) => {
+        const n = Object.assign(document.createElement(tag), props);
+        n.append(...children);
+        return n;
+      };
+      const ms = (v) => (v / 1000).toLocaleString("nb-NO", { minimumFractionDigits: 2, maximumFractionDigits: 2 }) + " s";
+      const when = (iso) => new Date(iso).toLocaleString("nb-NO", { dateStyle: "medium", timeStyle: "short" });
+
+      /** Enkle varsler som kan tyde på at testen ikke ble tatt seriøst. */
+      function warnings(data) {
+        const w = [];
+        const avg = data.tests.reduce((s, t) => s + t.averageTimeMs, 0) / data.tests.length;
+        if (avg < 200) w.push("Svært lave tider (snitt under 0,2 s per target)");
+        if (avg > 5000) w.push("Svært høye tider (snitt over 5 s per target)");
+        if (data.tests.some((t) => t.totalMisses > 40)) w.push("Mange bom i minst én test");
+        return w;
+      }
+
+      function card(item) {
+        const d = item.data;
+        const p = d.participant;
+        const actions = el("div", { className: "actions" });
+        for (const [action, text, cls] of ACTIONS[item.state]) {
+          const b = el("button", { className: "btn " + cls, textContent: text });
+          b.addEventListener("click", () => act(action, item.id, actions));
+          actions.append(b);
+        }
+        const rows = d.tests.map((t) =>
+          el("tr", {},
+            el("td", { textContent: `${TYPE[t.testType] || t.testType} ${t.attempt}` }),
+            el("td", { textContent: ms(t.totalTimeMs) }),
+            el("td", { textContent: ms(t.averageTimeMs) }),
+            el("td", { textContent: ms(t.shortestTimeMs) }),
+            el("td", { textContent: ms(t.longestTimeMs) }),
+            el("td", { textContent: String(t.totalMisses) })
+          )
+        );
+        const head = el("tr", {}, ...["Test", "Total", "Snitt", "Korteste", "Lengste", "Bom"].map((h) => el("th", { textContent: h })));
+        const w = warnings(d);
+        return el("article", { className: "card" },
+          el("div", { className: "head" },
+            el("strong", { textContent: when(d.completedAt) }),
+            el("span", { className: "id", textContent: item.id }),
+            el("div", { className: "chips" },
+              el("span", { className: "chip", textContent: `Alder: ${p.age}` }),
+              el("span", { className: "chip", textContent: `Kjønn: ${GENDER[p.gender] || p.gender}` }),
+              el("span", { className: "chip", textContent: `Foretrekker: ${PREF[p.preference] || p.preference}` })
+            ),
+            actions
+          ),
+          ...(w.length ? [el("div", { className: "warn", textContent: "⚠ " + w.join(" · ") })] : []),
+          el("div", { className: "table-wrap" }, el("table", {}, el("thead", {}, head), el("tbody", {}, ...rows)))
+        );
+      }
+
+      async function load(state = current) {
+        current = state;
+        const list = document.getElementById("list");
+        try {
+          const res = await fetch("/api/admin/list?state=" + encodeURIComponent(state), { cache: "no-store" });
+          if (!res.ok) throw new Error("HTTP " + res.status);
+          const { counts, items } = await res.json();
+          for (const t of document.querySelectorAll(".tab")) {
+            t.setAttribute("aria-selected", String(t.dataset.state === state));
+            t.textContent = `${LABEL[t.dataset.state]} (${counts[t.dataset.state]})`;
+          }
+          list.replaceChildren(...(items.length ? items.map(card) : [el("p", { className: "empty", textContent: "Ingen her." })]));
+        } catch (err) {
+          list.replaceChildren(el("p", { className: "error", textContent: "Kunne ikke hente listen: " + err.message }));
+        }
+      }
+
+      async function act(action, id, actions) {
+        for (const b of actions.querySelectorAll("button")) b.disabled = true;
+        try {
+          const res = await fetch(`/api/admin/${action}?id=${encodeURIComponent(id)}`, {
+            method: "POST",
+            headers: { "x-admin-action": "1" },
+          });
+          if (!res.ok) throw new Error((await res.json().catch(() => ({}))).error || "HTTP " + res.status);
+        } catch (err) {
+          alert("Feilet: " + err.message);
+        }
+        load();
+      }
+
+      for (const t of document.querySelectorAll(".tab")) t.addEventListener("click", () => load(t.dataset.state));
+      load();
+    </script>
+  </body>
+</html>

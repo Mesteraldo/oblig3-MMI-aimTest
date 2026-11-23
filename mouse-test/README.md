@@ -1,5 +1,7 @@
 # Mus vs. Trackpad – hastighet og presisjon
 
+> **Testingen er ferdig og nettstedet er stengt.** Serveren viser nå bare `stengt/index.html` («Innsending er ferdig, takk for bidrag!») på alle offentlige adresser, og `/api/save` svarer 410. Testappen i denne mappa serveres ikke lenger. `/admin` virker fortsatt, så du kan se og laste ned innsamlede data. Resten av denne filen beskriver hvordan appen virket mens testen var åpen.
+
 En liten nettapp som måler hvor raskt og presist en testperson treffer targets med trackpad og med ekstern mus. Ingenting lagres automatisk.
 
 **På nett:** https://aimtest.esper.no. Innsendte gjennomganger havner først i en kø (`venter/`). De lagres «ordentlig» (`godkjent/`) først når du godkjenner dem på **/admin**.

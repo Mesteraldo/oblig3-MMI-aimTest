@@ -4,7 +4,7 @@
   "description": "",
   "main": "index.js",
   "scripts": {
-    "test": "node tests/e2e.mjs",
+    "test": "node tests/stengt.mjs",
     "start": "node server.mjs"
   },
   "repository": {

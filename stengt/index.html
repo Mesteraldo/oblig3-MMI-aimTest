@@ -1,0 +1,70 @@
+<!doctype html>
+<html lang="nb">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Innsending er ferdig</title>
+    <style>
+      :root {
+        --black: #000000;
+        --navy: #14213d;
+        --orange: #fca311;
+        --platinum: #e5e5e5;
+        --white: #ffffff;
+      }
+      * {
+        box-sizing: border-box;
+      }
+      html,
+      body {
+        margin: 0;
+        min-height: 100%;
+        background: var(--black);
+        color: var(--white);
+        font-family: system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+        line-height: 1.5;
+        -webkit-font-smoothing: antialiased;
+      }
+      main {
+        min-height: 100vh;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        padding: 40px 16px;
+        background:
+          radial-gradient(1200px 600px at 15% -10%, rgba(252, 163, 17, 0.07), transparent 60%),
+          radial-gradient(900px 500px at 110% 110%, rgba(20, 33, 61, 0.85), transparent 60%), var(--black);
+      }
+      .panel {
+        width: 100%;
+        max-width: 560px;
+        text-align: center;
+        background: var(--navy);
+        border: 1px solid color-mix(in srgb, var(--navy) 68%, var(--platinum));
+        border-radius: 20px;
+        padding: 48px 32px;
+        box-shadow: 0 24px 60px rgba(0, 0, 0, 0.35);
+      }
+      h1 {
+        font-size: clamp(28px, 6vw, 40px);
+        line-height: 1.15;
+        margin: 0 0 12px;
+        letter-spacing: -0.02em;
+      }
+      p {
+        font-size: 20px;
+        margin: 0;
+        color: var(--orange);
+        font-weight: 600;
+      }
+    </style>
+  </head>
+  <body>
+    <main>
+      <div class="panel">
+        <h1>Innsending er ferdig</h1>
+        <p>Takk for bidrag!</p>
+      </div>
+    </main>
+  </body>
+</html>

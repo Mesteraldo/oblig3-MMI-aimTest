@@ -3,7 +3,7 @@ FROM node:24.11.0-alpine3.22
 WORKDIR /app
 ENV NODE_ENV=production PORT=3000 HOST=0.0.0.0 RESULTS_DIR=/data
 COPY server.mjs package.json ./
-COPY mouse-test ./mouse-test
+COPY stengt ./stengt
 COPY admin ./admin
 # Innsendinger (venter/godkjent/avvist) ligger i volumet /data – må eies av node-brukeren.
 RUN mkdir -p /data && chown node:node /data
